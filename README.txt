@@ -1,86 +1,70 @@
-# Meme 跟单简化版（Solana）
-
-一套可落地的最小化流程：入口抓样本 → 过滤 → 评分 → 导出最终跟单名单。  
-你只需要记住 **3 条命令 + 1 条清理**。
+#本意是想写一个smart money的过滤器，奈何sol上近期都是扬威盘......祝有缘人顺利！
+#V2增加了链识别模块，兼容EVM链过滤，按需在.env文件添加链RPC即可；
+#本人纯新人，借用Chatgpt的Vibe Coding，不好用勿喷，鼓励是最重要的！
 
 ---
 
-## 环境准备
+# Meme Filter System
 
-```bash
-# 1) 创建并激活虚拟环境（如已存在可跳过）
-python3 -m venv .venv
-source .venv/bin/activate
+## 🧩 实现逻辑
 
-# 2) 安装依赖
-pip install -r requirements.txt
+本系统用于多链（Solana / BSC / Base）代币合约地址的投机用户分析与筛选，核心流程如下：
 
-# 3) 配置 .env（至少要有 SOLANA_RPC_URL）
-cp .env.example .env  # 若没有 .env.example 就直接创建 .env
-# 然后编辑 .env，设置：
-# SOLANA_RPC_URL=你的RPC地址
+1. **入口层 (holders / early)**
+   - `holders`：抓取某合约的持仓前 N 个地址  
+   - `early`：扫描合约初期的交易日志，识别早期买家  
 
-每次开新终端记得：
+2. **评分层 (score-watch / score-white)**
+   - 为候选地址打分，包括：  
+     - **胜率 (win rate)**  
+     - **交易回合数 (rounds)**  
+     - **平均 PnL**  
+     - **SOL / BNB / ETH 余额过滤**  
 
-source .venv/bin/activate
-# 注入 .env，使 RPC 生效（或在 app/__init__.py 已自动加载）
-set -a; source .env; set +a
+3. **筛选层 (gmgn_filter / score-select)**
+   - 按条件过滤：
+     - `min-win-rate`
+     - `min-rounds`
+     - `min-sol`, `max-sol`
+   - 输出最终白名单地址
 
-一次性导入合约地址：
+4. **导出层**
+   - 统一导出 `CSV` 和 `TXT`  
+   - 支持自动记录日志（每个环节都有 `[INFO]`, `[OK]`, `[ERR]` 提示）
 
-python -m app.cli import-token --mint <MINT地址>
+---
 
-抓地址（持有人+早期买家）
-make holders early MINT=<MINT地址>
-
-过滤（硬+软）
-make filter
-
-快照查看
-python -m app.cli view --limit 100
-
-评分+导入最终名单
-make score MINT=<MINT地址>
-
-清理：数据库/导出/日志
-make clean
-
-目录结构
+## 📂 模块框架
 app/
-  rpc.py         # RPC 封装 + TOKEN_PROGRAM_ID
-  solana_spl.py  # SPL 取持有人（jsonParsed 兼容）
-  txscan.py      # 回放交易 + 窗口优化
-  logscan.py     # 入口扫描（持有人/早期），实时日志
-  filters.py     # 软/硬过滤
-  t0.py          # 估算 T0
-  rounds.py      # 回合重建 + USD 估值（有价源更准）
-  score.py       # white/watch 评分 + 导出(含 SOL 余额)
-  cli.py         # 统一命令入口
+├── cli.py           # 主入口 CLI
+├── gmgn_filter.py   # GMGN API 筛选模块
+├── evm_rpc.py       # EVM 链 RPC 工具（支持分片 getLogs）
+├── evm_scan.py      # EVM 持仓 & early 买家扫描
+├── detect_chain.py  # 自动识别合约属于哪条链
+scripts/
+├── onekey.sh        # 一键执行脚本（从 Mint/Token -> 导出地址）
 data/
-  db.sqlite      # SQLite 数据库（自动生成）
-  exports/       # 导出 TXT/CSV
-logs/            # tee 的实时日志
-Makefile         # 一键化命令
-.env             # 你的RPC等环境变量
+├── exports/         # 所有导出结果 (CSV/TXT)
+logs/                # 各环节日志
 
 
-许可证
 ---
 
-## `.gitignore`（建议加上）
+## ⚡ 执行命令
 
-在项目根目录创建 `.gitignore`：
+### 1. Solana
+```bash
+./scripts/onekey.sh <MINT_ADDRESS>
 
-```gitignore
-# Python
-__pycache__/
-*.pyc
-.venv/
+### 2. BSC
+./scripts/onekey.sh <TOKEN_ADDRESS> bsc
 
-# Local data
-data/db.sqlite
-data/exports/*
-logs/*
-
-# Env
-.env
+### 3. Base
+./scripts/onekey.sh <TOKEN_ADDRESS> base
+### 4. 导出结果
+ls -lt data/exports/
+导出文件格式：
+	•	final_<chain>_<prefix>_YYYYMMDD_HHMMSS.csv
+	•	final_<chain>_<prefix>_YYYYMMDD_HHMMSS.txt
+### 5. 清理数据库
+Make clean

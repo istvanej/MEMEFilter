@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Local configs
+.env
+
+# Project outputs
+logs/
+data/exports/
+data/db.sqlite

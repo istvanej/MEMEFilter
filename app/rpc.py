@@ -39,9 +39,17 @@ class SolRpc:
             cfg["filters"] = filters
         return self.call("getProgramAccounts", [program_id, cfg])
 
+    def get_program_accounts_raw(self, program_id: str, cfg: dict):
+        # 允许自定义 encoding/base64 + dataSlice
+        return self.call("getProgramAccounts", [program_id, cfg])
+
     def get_block_time(self, slot: int):
         return self.call("getBlockTime", [slot])
 
     def get_balance(self, pubkey: str):
         # returns lamports
         return self.call("getBalance", [pubkey, {"commitment": "confirmed"}])
+
+    def get_multiple_accounts(self, pubkeys: list):
+        # 批量查余额/账户，返回 value 列表（每项含 lamports）
+        return self.call("getMultipleAccounts", [pubkeys, {"encoding": "jsonParsed"}])
