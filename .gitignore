@@ -1,12 +1,15 @@
-# Python
-__pycache__/
-*.pyc
+# venv & OS
 .venv/
+.DS_Store
 
-# Local configs
+# secrets
 .env
 
-# Project outputs
+# python cache
+__pycache__/
+*.pyc
+
+# local data & logs
 logs/
 data/exports/
 data/db.sqlite
